@@ -7,17 +7,20 @@ export async function getAICode(prompt) {
   }
 
   try {
-    // Using fetch directly to have full control over the request path and debugging
-    const response = await fetch('/api/deepseek/chat/completions', {
+    // Using Gemini API - Using v1beta version and gemini-pro model
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [{ role: "user", content: prompt + "，请用代码块返回结果" }],
-        stream: false
+        contents: [{
+          parts: [{ text: prompt + "?????????��????" }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024
+        }
       })
     });
 
@@ -34,13 +37,17 @@ export async function getAICode(prompt) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+      // Detailed error message for debugging
+      const errorMsg = errorData.error?.message || `API Error: ${response.status}`;
+      const errorDetails = errorData.error?.details || [];
+      const fullErrorMsg = `${errorMsg}. Details: ${JSON.stringify(errorDetails)}`;
+      throw new Error(fullErrorMsg);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    return data.candidates[0].content.parts[0].text;
   } catch (error) {
-    console.error("DeepSeek API Call Failed:", error);
+    console.error("Gemini API Call Failed:", error);
     throw error;
   }
 }
