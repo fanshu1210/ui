@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encoding Test</title>
+    <script type="module">
+        // Import jschardet from CDN
+        import jschardet from 'https://cdn.jsdelivr.net/npm/jschardet@3.0.0/dist/jschardet.min.mjs';
+        
+        console.log('Testing jschardet encoding detection...');
+        
+        // Test with some sample data
+        const sampleData1 = new TextEncoder().encode('Hello, world!');
+        const sampleData2 = new TextEncoder('gbk').encode('你好，世界！');
+        
+        console.log('Sample data 1 (UTF-8):', sampleData1);
+        console.log('Sample data 2 (GBK):', sampleData2);
+        
+        const result1 = jschardet.detect(sampleData1);
+        const result2 = jschardet.detect(sampleData2);
+        
+        console.log('Detection result 1:', result1);
+        console.log('Detection result 2:', result2);
+        
+        // Test with a simulated API response
+        async function testApiResponseSimulation() {
+            console.log('\nTesting API response simulation...');
+            
+            // Create a sample API response
+            const sampleResponse = {
+                "id": "test-123",
+                "object": "chat.completion",
+                "created": 1766863513,
+                "model": "deepseek-chat",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "# NDVI计算函数\n\ndef calculate_ndvi(red, nir):\n    return (nir - red) / (nir + red)\n"
+                        },
+                        "finish_reason": "stop"
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 88,
+                    "completion_tokens": 50,
+                    "total_tokens": 138
+                }
+            };
+            
+            // Convert to JSON string
+            const jsonString = JSON.stringify(sampleResponse);
+            console.log('Sample JSON string:', jsonString);
+            
+            // Encode as UTF-8 buffer
+            const utf8Buffer = new TextEncoder().encode(jsonString);
+            console.log('UTF-8 buffer:', utf8Buffer);
+            
+            // Detect encoding
+            const detectionResult = jschardet.detect(utf8Buffer);
+            console.log('Encoding detection result:', detectionResult);
+            
+            // Decode
+            const decoder = new TextDecoder(detectionResult.encoding || 'utf-8');
+            const decodedString = decoder.decode(utf8Buffer);
+            console.log('Decoded string:', decodedString);
+            
+            // Parse JSON
+            const parsedData = JSON.parse(decodedString);
+            console.log('Parsed JSON:', parsedData);
+            console.log('Extracted content:', parsedData.choices[0].message.content);
+        }
+        
+        // Run the test
+        testApiResponseSimulation().catch(error => {
+            console.error('Test failed:', error);
+        });
+    </script>
+</head>
+<body>
+    <h1>Encoding Detection Test</h1>
+    <p>Check the browser console for results.</p>
+</body>
+</html>

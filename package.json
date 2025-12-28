@@ -10,10 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@tailwindcss/postcss": "^4.1.18",
     "autoprefixer": "^10.4.23",
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "jschardet": "^3.1.4",
     "lucide-react": "^0.562.0",
     "openai": "^6.15.0",
+    "pako": "^2.1.0",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
