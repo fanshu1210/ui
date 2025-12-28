@@ -1,44 +1,140 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Play, Share2, Github, Download, MoreVertical, MessageSquare, History, MapPin, Plus, ChevronDown, Send } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getAICode } from '../api/openai';
 
 const WorkspacePage = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello! I am your Lyrasense AI assistant. Ask me to generate geospatial code for you.' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [code, setCode] = useState('# Generated code will appear here...\n\n# Example:\n# def calculate_ndvi(image):\n#     return image.normalizedDifference(["B8", "B4"])');
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const processedQuestionRef = useRef(null);
+  const chatStartedRef = useRef(false);
+  
+  // ±£´æµ±Ç°ÁÄÌìµ½ÀúÊ·¼ÇÂ¼
+  const saveChatToHistory = () => {
+    // Ö»±£´æÓÐÓÃ»§ÏûÏ¢µÄÁÄÌì
+    const hasUserMessages = messages.some(msg => msg.role === 'user');
+    
+    if (!hasUserMessages) {
+      console.log('Skipping save: no user messages');
+      return;
+    }
+    
+    console.log('Attempting to save chat history...');
+    console.log('Current messages:', messages);
+    
+    // ´ÓlocalStorage»ñÈ¡ÏÖÓÐÀúÊ·
+    const savedHistory = localStorage.getItem('chatHistory');
+    const chatHistory = savedHistory ? JSON.parse(savedHistory) : [];
+    
+    console.log('Existing chat history:', chatHistory);
+    
+    // ¼ò»¯£º²»ÔÙ¼ì²éÖØ¸´£¬Ö±½Ó±£´æ
+    // Ìí¼Óµ±Ç°ÁÄÌìµ½ÀúÊ·
+    const newChat = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleString(),
+      messages: [...messages]
+    };
+    
+    // ±£´æµ½localStorage
+    localStorage.setItem('chatHistory', JSON.stringify([...chatHistory, newChat]));
+    console.log('Chat saved to history:', newChat);
+    console.log('Updated chat history count:', chatHistory.length + 1);
+  };
+  
+  // ÔÚÓÃ»§·¢ËÍÏûÏ¢ºóÁ¢¼´±£´æ
+  useEffect(() => {
+    // Ö»±£´æÓÐÓÃ»§ÏûÏ¢µÄÁÄÌì
+    const hasUserMessages = messages.some(msg => msg.role === 'user');
+    
+    if (hasUserMessages) {
+      // ¼ò»¯£ºÖ±½Ó±£´æ£¬²»ÑÓ³Ù
+      saveChatToHistory();
+    }
+  }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (prompt = inputValue) => {
+    const userPrompt = prompt || inputValue;
+    // ¼ì²éÊÇ·ñÓÐÄÚÈÝ¡¢ÊÇ·ñÕýÔÚ¼ÓÔØ¡¢ÊÇ·ñÕýÔÚ´¦Àí
+    if (!userPrompt.trim() || isLoading || isProcessing) return;
+    
+    // ¼ì²é¸ÃÎÊÌâÊÇ·ñÒÑ¾­´¦Àí¹ý
+    if (processedQuestionRef.current === userPrompt) {
+      console.log('Question already processed, skipping:', userPrompt);
+      return;
+    }
 
-    const userPrompt = inputValue;
+    // ÉèÖÃÕýÔÚ´¦Àí×´Ì¬
+    setIsProcessing(true);
     const newUserMessage = { role: 'user', content: userPrompt };
     
-    setMessages(prev => [...prev, newUserMessage]);
+    // Ìí¼ÓÓÃ»§ÏûÏ¢µ½ÁÐ±í
+    setMessages(prev => {
+      // ¼ì²éÏûÏ¢ÁÐ±íÖÐÊÇ·ñÒÑ¾­ÓÐÏàÍ¬µÄÏûÏ¢
+      const hasSameMessage = prev.some(msg => msg.role === 'user' && msg.content === userPrompt);
+      if (hasSameMessage) {
+        console.log('Same message already exists in list, skipping addition:', userPrompt);
+        return prev;
+      }
+      return [...prev, newUserMessage];
+    });
+    
+    // ×ÜÊÇÇå¿ÕÊäÈë¿ò£¬ÎÞÂÛÊÇ·ñÓÐprompt²ÎÊý
     setInputValue('');
+    
     setIsLoading(true);
+    processedQuestionRef.current = userPrompt;
 
     try {
-      const aiResponse = await getAICode(userPrompt);
+        console.log('Calling getAICode with prompt:', userPrompt);
+        const apiResponse = await getAICode(userPrompt);
+        
+        console.log('API Response received:', JSON.stringify(apiResponse, null, 2));
+        
+        // Extract content from API response (DeepSeek uses OpenAI format)
+        let aiResponse = '';
+        if (apiResponse && apiResponse.choices && Array.isArray(apiResponse.choices) && apiResponse.choices.length > 0) {
+          if (apiResponse.choices[0].message && apiResponse.choices[0].message.content) {
+            // Ensure aiResponse is always a string
+            aiResponse = String(apiResponse.choices[0].message.content);
+            console.log('Extracted AI Response (DeepSeek/OpenAI format):', aiResponse);
+          } else {
+            console.error('Message content not found in response:', apiResponse.choices[0]);
+            throw new Error('Message content not found in API response');
+          }
+        } else {
+          console.error('Unexpected API response format:', apiResponse);
+          throw new Error('Invalid API response format');
+        }
       
       // Basic cleanup to extract code from markdown if present
       let cleanCode = aiResponse;
+      
+      // Since we've already ensured aiResponse is a string earlier, we can safely call string methods
       if (aiResponse.includes('```')) {
         const matches = aiResponse.match(/```(?:python)?\s*([\s\S]*?)```/);
         if (matches && matches[1]) {
           cleanCode = matches[1];
+          console.log('Extracted code block:', cleanCode);
         } else {
-            // If strictly just code blocks are requested but mixed content returns, 
-            // we might just show the whole thing or try to clean it. 
-            // For now, let's assume the prompt "è¯·ç”¨ä»£ç å—è¿”å›žç»“æžœ" does its job 
-            // or we strip the backticks.
-            cleanCode = aiResponse.replace(/```python|```/g, '');
+          // If strictly just code blocks are requested but mixed content returns,
+          // we might just show the whole thing or try to clean it.
+          cleanCode = aiResponse.replace(/```python|```/g, '');
+          console.log('Cleaned code by removing backticks:', cleanCode);
         }
       }
+      
+      // Ensure cleanCode is also a string
+      cleanCode = String(cleanCode);
 
       setMessages(prev => [...prev, { role: 'assistant', content: 'Code generated successfully! Check the editor.' }]);
       setCode(cleanCode);
@@ -47,8 +143,34 @@ const WorkspacePage = () => {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error.message || 'Unknown error occurred.'}` }]);
     } finally {
       setIsLoading(false);
+      setIsProcessing(false);
     }
   };
+
+  // µ±×é¼þ¹ÒÔØÊ±£¬Èç¹ûÃ»ÓÐURL²ÎÊý£¬ÖØÖÃÁÄÌì»á»°
+  useEffect(() => {
+    const question = searchParams.get('question');
+    if (!question) {
+      // Ã»ÓÐURL²ÎÊý£¬ÖØÖÃÁÄÌì»á»°
+      setMessages([
+        { role: 'assistant', content: 'Hello! I am your Lyrasense AI assistant. Ask me to generate geospatial code for you.' }
+      ]);
+      setCode('# Generated code will appear here...\n\n# Example:\n# def calculate_ndvi(image):\n#     return image.normalizedDifference(["B8", "B4"])');
+      processedQuestionRef.current = null;
+      chatStartedRef.current = false;
+    }
+  }, [searchParams]);
+  
+  // Auto-send question from URL query parameter when component mounts
+  useEffect(() => {
+    const question = searchParams.get('question');
+    // ¼ì²éÊÇ·ñÓÐÎÊÌâ¡¢ÊÇ·ñÕýÔÚ´¦Àí¡¢ÊÇ·ñÒÑ¾­´¦Àí¹ý
+    if (question && !isProcessing && processedQuestionRef.current !== question) {
+      console.log('Auto-sending question:', question);
+      // µ÷ÓÃhandleSendMessage´¦ÀíÎÊÌâ£¬handleSendMessageÄÚ²¿»á´¦ÀíÖØ¸´¼ì²é
+      handleSendMessage(question);
+    }
+  }, [searchParams, isProcessing]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -67,7 +189,12 @@ const WorkspacePage = () => {
             <h2 className="font-semibold">AI Chat History</h2>
             <div className="flex bg-gray-800 rounded-md p-1">
                 <button className="px-3 py-1 bg-accent rounded text-xs">Chat</button>
-                <button className="px-3 py-1 text-gray-400 text-xs hover:text-white">History</button>
+                <button 
+                    className="px-3 py-1 text-gray-400 text-xs hover:text-white"
+                    onClick={() => navigate('/history')}
+                >
+                    History
+                </button>
             </div>
         </div>
 
@@ -138,6 +265,13 @@ const WorkspacePage = () => {
              </div>
              <div className="flex items-center gap-2">
                  <button className="p-1.5 text-gray-400 hover:text-white"><MessageSquare size={16} /></button>
+                 <button 
+                     className="p-1.5 text-gray-400 hover:text-white" 
+                     onClick={() => navigate('/history')}
+                     title="View Chat History"
+                 >
+                     <History size={16} />
+                 </button>
                  <button className="flex items-center gap-1 px-3 py-1.5 bg-card border border-gray-700 rounded text-xs hover:bg-gray-700">
                      <Play size={12} /> Run <ChevronDown size={12} />
                  </button>

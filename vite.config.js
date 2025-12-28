@@ -16,7 +16,8 @@ export default defineConfig({
       '/api/deepseek': {
         target: 'https://api.deepseek.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/deepseek/, '')
       }
     }
   },

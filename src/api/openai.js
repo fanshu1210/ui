@@ -1,53 +1,87 @@
+import axios from 'axios';
 
-export async function getAICode(prompt) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please check your .env file.");
-  }
-
-  try {
-    // Using Gemini API - Using v1beta version and gemini-pro model
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt + "?????????鷵????" }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024
+export const getAICode = async (prompt) => {
+    try {
+        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+        console.log('Using DeepSeek API Key:', apiKey ? 'Available' : 'Not available');
+        
+        if (!apiKey) {
+            throw new Error('VITE_OPENAI_API_KEY is not set in .env file');
         }
-      })
-    });
-
-    // Check if the response is JSON
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text();
-      // If we get HTML, it usually means the proxy failed and we're getting the index.html
-      if (text.includes("<!doctype html>") || text.includes("<!DOCTYPE html>")) {
-        throw new Error("Proxy Error: Received HTML instead of JSON. The API path might be incorrect.");
-      }
-      throw new Error(`Received non-JSON response: ${text.substring(0, 100)}...`);
+        
+        // 构建系统提示和用户消息
+        const systemPrompt = '你是一个专业的地理空间数据处理和GIS开发专家，请根据用户的要求生成高质量的Python代码，专注于地理空间分析、遥感图像处理等任务。请直接返回代码，不要添加额外解释。';
+        
+        // 使用代理路径访问DeepSeek API，避免CORS问题
+        const apiUrl = '/api/deepseek/v1/chat/completions';
+        
+        console.log('Sending request to DeepSeek API via proxy...');
+        console.log('Request URL:', apiUrl);
+        
+        const requestData = {
+            model: 'deepseek-chat',
+            messages: [
+                {
+                    role: 'system',
+                    content: systemPrompt
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000
+        };
+        
+        console.log('Request Data:', JSON.stringify(requestData, null, 2));
+        
+        // 发送请求
+        const response = await axios.post(
+            apiUrl,
+            requestData,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Accept-Encoding': 'identity',
+                    'Accept-Language': 'zh-CN,zh;q=0.9'
+                },
+                timeout: 60000
+            }
+        );
+        
+        console.log('DeepSeek API Response received:', response.status);
+        console.log('Response headers:', response.headers);
+        console.log('Response data:', JSON.stringify(response.data, null, 2));
+        
+        // 检查响应数据格式
+        if (response.data && response.data.choices && Array.isArray(response.data.choices)) {
+            return response.data;
+        } else {
+            console.error('Unexpected response data format:', response.data);
+            throw new Error('Invalid response format from DeepSeek API');
+        }
+    } catch (error) {
+        console.error('DeepSeek API Error:', error);
+        if (error.response) {
+            console.error('Response Status:', error.response.status);
+            console.error('Response Data:', JSON.stringify(error.response.data, null, 2));
+            console.error('Response Headers:', error.response.headers);
+        } else if (error.request) {
+            console.error('No response received from DeepSeek API. Request details:', error.request);
+        } else {
+            console.error('Request error:', error.message);
+        }
+        
+        // 如果API失败，提供友好的错误信息
+        const errorMessage = error.response ? 
+            `${error.response.status}: ${JSON.stringify(error.response.data)}` : 
+            error.message;
+            
+        throw new Error('无法连接到DeepSeek API。请检查网络连接或API密钥设置。\n\n错误详情：' + errorMessage);
     }
+};
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      // Detailed error message for debugging
-      const errorMsg = errorData.error?.message || `API Error: ${response.status}`;
-      const errorDetails = errorData.error?.details || [];
-      const fullErrorMsg = `${errorMsg}. Details: ${JSON.stringify(errorDetails)}`;
-      throw new Error(fullErrorMsg);
-    }
-
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    console.error("Gemini API Call Failed:", error);
-    throw error;
-  }
-}
+// Export default for backward compatibility
+export default { getAICode }

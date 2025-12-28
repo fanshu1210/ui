@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Send, ChevronDown, HelpCircle, ArrowRight, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import TemplateCard from '../components/TemplateCard';
 
 const HomePage = () => {
+  const [inputValue, setInputValue] = useState('');
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  
   const templates = [
     {
       title: "Methane Emissions | Sentinel-5p",
@@ -30,25 +36,45 @@ const HomePage = () => {
     }
   ];
 
+  const handleSendMessage = () => {
+    if (inputValue.trim()) {
+      // Navigate to workspace with the question as query parameter
+      navigate(`/workspace?question=${encodeURIComponent(inputValue.trim())}`);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
   return (
     <div className="ml-64 bg-dark text-gray-100 min-h-screen p-8">
       
       {/* Welcome Section */}
       <div className="max-w-4xl mx-auto mt-10 mb-16 text-center">
-        <h1 className="text-4xl font-bold mb-8 text-white">Welcome 逢时!</h1>
+        <h1 className="text-4xl font-bold mb-8 text-white">Welcome {currentUser ? `${currentUser.username}!` : '!'}</h1>
         
         {/* Input Area */}
         <div className="bg-card rounded-xl border border-gray-700 p-4 shadow-lg relative">
             <textarea 
                 className="w-full bg-transparent text-white placeholder-gray-500 resize-none outline-none h-20"
                 placeholder="Ask me anything geospatial and I'll help you build it..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
             />
             
             <div className="flex items-center justify-between mt-4 border-t border-gray-700 pt-3">
                 <button className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium">
                     Agent <ChevronDown size={14} />
                 </button>
-                <button className="bg-accent hover:bg-opacity-90 text-white p-2 rounded-lg transition-colors">
+                <button 
+                    className="bg-accent hover:bg-opacity-90 text-white p-2 rounded-lg transition-colors"
+                    onClick={handleSendMessage}
+                >
                     <Send size={18} />
                 </button>
             </div>

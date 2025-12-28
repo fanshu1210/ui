@@ -14,8 +14,10 @@ import {
   Search,
   Settings
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
+  const { currentUser, setIsLoginModalOpen, setIsSignupModalOpen, logout } = useAuth();
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [chatsExpanded, setChatsExpanded] = useState(false);
 
@@ -29,16 +31,38 @@ const Sidebar = () => {
 
   return (
     <div className="bg-dark text-white w-64 h-screen fixed left-0 top-0 z-50 flex flex-col border-r border-gray-700">
-      {/* User Profile / Logo area */}
-      <div className="p-4 border-b border-gray-700 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent to-purple-500 flex items-center justify-center text-white font-bold">
-            U
-        </div>
-        <div className="flex flex-col">
-            <span className="text-sm font-semibold text-white">番薯大王</span>
-            <span className="text-xs text-gray-400">Free Plan</span>
-        </div>
-        <ChevronDown size={14} className="ml-auto cursor-pointer" />
+      {/* User Profile / Login/Signup area */}
+      <div className="p-4 border-b border-gray-700">
+        {currentUser ? (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent to-purple-500 flex items-center justify-center text-white font-bold">
+              {currentUser.username.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-white">{currentUser.username}</span>
+              <span className="text-xs text-gray-400">Free Plan</span>
+            </div>
+            <ChevronDown size={14} className="ml-auto cursor-pointer" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-white">Welcome to LYRASENSE</h2>
+            <div className="flex gap-2">
+              <button 
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 px-4 rounded-md transition-colors"
+                onClick={() => setIsLoginModalOpen(true)}
+              >
+                Login
+              </button>
+              <button 
+                className="flex-1 bg-primary hover:bg-primary/90 text-white text-sm py-2 px-4 rounded-md transition-colors"
+                onClick={() => setIsSignupModalOpen(true)}
+              >
+                Signup
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Navigation */}
@@ -122,16 +146,24 @@ const Sidebar = () => {
             <Folder size={18} />
             Files
          </div>
-         <div className="mt-2 flex items-center gap-3 px-3 py-2 bg-card rounded-md">
-            <div className="w-8 h-8 rounded bg-accent/20 flex items-center justify-center text-accent">
-                <span className="text-xs font-mono">ID</span>
-            </div>
-            <div className="flex flex-col overflow-hidden">
-                <span className="text-xs font-bold text-white truncate">2971329974</span>
-                <span className="text-[10px] text-gray-500 truncate">2971329974@qq....</span>
-            </div>
-             <ChevronDown size={14} className="ml-auto text-gray-500" />
-         </div>
+         
+         {/* User Info - Only show if logged in */}
+         {currentUser && (
+           <div className="mt-2 flex items-center gap-3 px-3 py-2 bg-card rounded-md">
+             <div className="w-8 h-8 rounded bg-accent/20 flex items-center justify-center text-accent">ID</div>
+             <div className="flex flex-col overflow-hidden">
+               <span className="text-xs font-bold text-white">{currentUser.username}</span>
+               <span className="text-[10px] text-gray-500 truncate">{currentUser.email}</span>
+             </div>
+             <button 
+               onClick={logout} 
+               className="ml-auto text-gray-500 hover:text-white"
+               title="Logout"
+             >
+               <ChevronDown size={14} />
+             </button>
+           </div>
+         )}
       </div>
     </div>
   );
